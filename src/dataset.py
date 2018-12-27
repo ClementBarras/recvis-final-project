@@ -15,12 +15,12 @@ class Sampler(object):
             idxs = random.sample(frame_idx_list, self.n_samples)
             idxs = sorted(idxs)
         elif self.sampling_strat == 'consecutive':
-            start_idx = random.sample(frame_idx_list, 1)
-            idxs = [start_idx + j for j in range(self.n_samples)]
+            start_idx = random.sample(list(range(len(frame_idx_list)-self.n_samples)), 1)[0]
+            idxs = [frame_idx_list[start_idx + j] for j in range(self.n_samples)]
         elif self.sampling_strat == 'constrained_consecutive':
-            window_size = 1.5 * self.n_samples
-            start_idx = random.sample(frame_idx_list, 1)
-            window_idxs = [start_idx + j for j in range(self.n_samples)]
+            window_size = int(1.5 * self.n_samples)
+            start_idx = random.sample(list(range(len(frame_idx_list)-window_size)), 1)[0]
+            window_idxs = [frame_idx_list[start_idx + j] for j in range(window_size)]
             idxs = random.sample(window_idxs, self.n_samples)
         if shuffle:
             shuffled = random.sample(idxs, len(idxs))
