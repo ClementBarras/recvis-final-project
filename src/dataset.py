@@ -58,7 +58,10 @@ class ProxyTaskDataset(Dataset):
         questions.append((frames, 0))
         random.shuffle(questions) # Randomize position of incorrect sequence
         vid.close()
-        return questions
+        frames = np.array([qst[0] for qst in questions])
+        frames = np.transpose(frames, (0, 4, 1, 2, 3))
+        target = [qst[1] for qst in questions].index(1)
+        return frames, target
         
     def __len__(self):
         return len(self.video_list)
@@ -115,6 +118,7 @@ class Video(object):
             res, frame = self.cap.read()
             assert res, "Unable to read frame {} in video {}".frame(idx, self.vid_path)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = frame[0:224,0:224]
             frames.append(frame)
         return frames
             
