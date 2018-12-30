@@ -105,7 +105,7 @@ class Video(object):
             for i in range(unverified_frame_count):
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, i)
                 if not self.cap.grab():
-                    logging.warning('Frame {} corrupted in video {}'.format(i, vid_path))
+                    print('Frame {} corrupted in video {}'.format(i, self.vid_path))
                 else:
                     verified_frame_list.append(i)
             self.frame_idx_list = verified_frame_list
