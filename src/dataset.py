@@ -1,15 +1,20 @@
-import cv2
+from PIL import Image
 import os
 from torch.utils.data import Dataset
+from torchvision import transforms
 import numpy as np
 import random
+import torch
+
+basic_transform = transforms.Compose([transforms.Resize((224, 224))])
 
 class Sampler(object):
     def __init__(self, sampling_strat='random', n_samples=6):
         self.sampling_strat = sampling_strat
         self.n_samples = n_samples
         
-    def sample(self, frame_idx_list, shuffle=False):
+    def sample(self, frame_count, shuffle=False):
+        frame_idx_list = list(range(1, frame_count+1))
         idxs = []
         if self.sampling_strat == 'random':
             idxs = random.sample(frame_idx_list, self.n_samples)
@@ -31,36 +36,39 @@ class Sampler(object):
 
 
 class ProxyTaskDataset(Dataset):
-    def __init__(self, root='../datasets/UCF-101', sampling='random',
-                 video_info_path=['../datasets/ucfTrainTestlist/trainlist01.txt'], n_samples=6, n_questions=6):
+    def __init__(self, root='../datasets/UCF101_frames', sampling='random', transform = basic_transform,
+                 video_info_path='../datasets/ucfTrainTestlist/trainlist01.txt', n_samples=6, n_questions=6):
         super(ProxyTaskDataset, self).__init__()
         self.n_samples = n_samples
         self.n_questions = n_questions
         self.root = root
+        self.transform = transform
         self.video_list = self._get_video_list(video_info_path)
         self.sampler = Sampler(sampling_strat=sampling, n_samples=n_samples)
         
     def __getitem__(self, index):
         chosen_video = self.video_list[index]
         vid_path = os.path.join(self.root, chosen_video)
-        vid = Video(vid_path)
-        vid.count_frames(verify_frames=True)
-        frame_idx_list = vid.frame_idx_list
+        frame_count = len(os.listdir(vid_path))
         questions = []
         # Correct sequences
+        target = []
         for qst in range(self.n_questions-1):
-            idxs = self.sampler.sample(frame_idx_list)
-            frames = vid.extract_frames(idxs)
-            questions.append((frames, 1))
+            idxs = self.sampler.sample(frame_count)
+            frames = self._extract_frames(vid_path, idxs)
+            questions.append(frames)
+            target.append(1)
         #Incorrect sequence
-        idxs = self.sampler.sample(frame_idx_list, shuffle=True)
-        frames = vid.extract_frames(idxs)
-        questions.append((frames, 0))
-        random.shuffle(questions) # Randomize position of incorrect sequence
-        vid.close()
-        frames = np.array([qst[0] for qst in questions])
-        frames = np.transpose(frames, (0, 4, 1, 2, 3))
-        target = [qst[1] for qst in questions].index(1)
+        idxs = self.sampler.sample(frame_count, shuffle=True)
+        frames = self._extract_frames(vid_path, idxs)
+        questions.append(frames)
+        target.append(0)
+        temp = list(zip(questions, target))
+        random.shuffle(temp)
+        questions, target = zip(*temp)
+        target = target.index(0)
+        questions = torch.stack(questions)
+        frames = questions.permute((0, 2, 1, 3, 4))
         return frames, target
         
     def __len__(self):
@@ -68,6 +76,8 @@ class ProxyTaskDataset(Dataset):
     
     def _get_video_list(self, video_info_path):
         video_list = []
+        if isinstance(video_info_path, str):
+            video_info_path = [video_info_path]
         for path in video_info_path:
             assert os.path.exists(path), 'Cannot locate file {}.'.format(path)
             with open(path) as f:
@@ -78,52 +88,26 @@ class ProxyTaskDataset(Dataset):
                         vid, class_id = line.split(' ')
                     except ValueError:
                         vid = line
+                    vid = vid.split("/")[1]
+                    vid = vid.split(".")[0]
+                    vid += "/"
                     video_list.append(vid)
-        return video_list
+        return list(set(video_list))
     
-    
-class Video(object):
-    def __init__(self, vid_path):
-        self.open(vid_path)
-        
-    def open(self, vid_path):
-        assert os.path.exists(vid_path), 'Cannot locate {}'.format(vid_path)
-        cap = cv2.VideoCapture(vid_path)
-        if cap.isOpened():
-            self.cap = cap
-            self.vid_path = vid_path
-        else:
-            raise IOError("Failed to open video : {}".format(vid_path))
-        
-    def count_frames(self, verify_frames=False):
-        unverified_frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        if not verify_frames:
-            self.frame_count = unverified_frame_count
-            self.frame_idx_list = list(range(unverified_frame_count))
-        else:
-            verified_frame_list = []
-            for i in range(unverified_frame_count):
-                self.cap.set(cv2.CAP_PROP_POS_FRAMES, i)
-                if not self.cap.grab():
-                    print('Frame {} corrupted in video {}'.format(i, self.vid_path))
-                else:
-                    verified_frame_list.append(i)
-            self.frame_idx_list = verified_frame_list
-            self.frame_count = len(verified_frame_list)
-    
-    def extract_frames(self, idxs):
+    def _extract_frames(self, vid_path, idxs):
         frames = []
         for idx in idxs:
-            self.cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-            res, frame = self.cap.read()
-            assert res, "Unable to read frame {} in video {}".frame(idx, self.vid_path)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frame = frame[0:224,0:224]
-            frames.append(frame)
-        return frames
-            
-    def close(self):
-        self.cap.release()
-        self.cap = None
-                
+           # try:
+            path = os.path.join(vid_path, "frame_{}.jpg".format(idx))
+            frame = Image.open(path)
+            if self.transform:
+                frame = basic_transform(frame)
+            frames.append(transforms.ToTensor()(frame))
+            #except:
+                #print("Unable to read frame {}".format(path))
+        return torch.stack(frames)
+          
+        
+        
+    
             
