@@ -21,5 +21,5 @@ class O3N(nn.Module):
         x = torch.cat(to_concat, 1)
         x = x.view(-1, self.n_questions*400)
         x = F.relu(self.fc1(x))
-        output = F.softmax(self.fc2(x))
+        output = F.softmax(self.fc2(x), dim=0)
         return output
