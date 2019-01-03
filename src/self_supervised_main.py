@@ -7,10 +7,8 @@ from dataset import ProxyTaskDataset
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 import numpy as np
-from io import BytesIO
-import subprocess
-import sys
-import pandas as pd
+from utils import get_free_gpu
+
 
 # Training settings
 parser = argparse.ArgumentParser(description='Self supervised learning script')
@@ -22,7 +20,7 @@ parser.add_argument('--sampling', type=str, default='random', metavar='SA,',
                     help="Sampling strategy (random, consecutive or constrained consecutive).")
 parser.add_argument('--n_questions', type=int, default=6, metavar='Q,',
                     help="Number of questions")
-parser.add_argument('--n_samples', type=int, default=6, metavar='s,',
+parser.add_argument('--n_samples', type=int, default=10, metavar='s,',
                     help="Number of samples ie. frames")
 parser.add_argument('--batch-size', type=int, default=8, metavar='B',
                     help='input batch size for training (default: 64)')
@@ -56,7 +54,7 @@ if not os.path.isdir(args.experiment):
 train_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completetrainlist.txt'),                                                sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
 train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
 
-validation_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completetrainlist.txt'),                                                sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
+validation_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completevallist.txt'),                                                sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
 val_loader = DataLoader(validation_set, batch_size=args.batch_size, shuffle=True)
 
 #val_loader = torch.utils.data.DataLoader(
@@ -76,17 +74,6 @@ layers_to_freeze = [i3d.conv3d_1a_7x7, i3d.conv3d_2b_1x1, i3d.conv3d_2c_3x3, i3d
 for layer in layers_to_freeze:
     for param in layer.parameters():
         param.requires_grad = False
-
-def get_free_gpu():
-    gpu_stats = subprocess.check_output(["nvidia-smi", "--format=csv", "--query-gpu=memory.used,memory.free"])
-    gpu_df = pd.read_csv(BytesIO(gpu_stats),
-                        names=['memory.used', 'memory.free'],
-                        skiprows=1)
-    print('GPU usage:\n{}'.format(gpu_df))
-    gpu_df['memory.free'] = gpu_df['memory.free'].map(lambda x: float(x.rstrip(' [MiB]')))
-    idx = gpu_df['memory.free'].idxmax()
-    print('Using GPU{} with {} free MiB'.format(idx, gpu_df.iloc[idx]['memory.free']))
-    return idx
         
 if use_cuda:
     print('Using GPU')
