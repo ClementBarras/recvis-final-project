@@ -25,18 +25,84 @@ class Sampler(object):
         elif self.sampling_strat == 'constrained_consecutive':
             window_size = int(1.5 * self.n_samples)
             start_idx = random.sample(list(range(len(frame_idx_list)-window_size)), 1)[0]
+            start_idx = list(range(len(frame_idx_list)-window_size))[-1]
             window_idxs = [frame_idx_list[start_idx + j] for j in range(window_size)]
             idxs = random.sample(window_idxs, self.n_samples)
+            idxs = sorted(idxs)
         if shuffle:
             shuffled = random.sample(idxs, len(idxs))
             while shuffled == idxs:
                 shuffled = random.sample(idxs, len(idxs))
             idxs = shuffled
         return idxs
+    
+    
+class SupervisedDataset(Dataset):
+    def __init__(self, root='../datasets/UCF101_frames', transform=basic_transform, train=True,
+                 video_info_path='../datasets/ucfTrainTestlist/trainlist01.txt'):
+        super(SupervisedDataset, self).__init__()
+        self.root = root
+        self.transform = transform
+        self.train = train
+        if train:
+            self.video_list, self.labels = self._get_video_list(video_info_path)
+        else:
+            self.video_list = self._get_video_list(video_info_path)
+    
+    def __getitem__(self, index):
+        chosen_video = self.video_list[index]
+        vid_path = os.path.join(self.root, chosen_video)
+        frame_count = len(os.listdir(vid_path))
+        frames = self._extract_frames(vid_path, list(range(1, frame_count+1)))
+        if self.train:
+            to_return = (frames, self.labels[index])
+        else:
+            to_return = frames
+        return to_return
+        
+    def __len__(self):
+        return len(self.video_list)
+    
+    def _get_video_list(self, video_info_path):
+        video_list = []
+        labels = []
+        if isinstance(video_info_path, str):
+            video_info_path = [video_info_path]
+        for path in video_info_path:
+            assert os.path.exists(path), 'Cannot locate file {}.'.format(path)
+            with open(path) as f:
+                lines = f.readlines()
+                for line in lines:
+                    line = line.strip('\n')
+                    if self.train:
+                        vid, class_id = line.split(' ')
+                        labels.append(int(class_id))
+                    else:
+                        vid = line
+                    vid = vid.split("/")[1]
+                    vid = vid.split(".")[0]
+                    vid += "/"
+                    video_list.append(vid)
+        if labels:
+            to_return = (video_list, labels)
+        else:
+            to_return = video_list
+        return to_return
+    
+    def _extract_frames(self, vid_path, idxs):
+        frames = []
+        for idx in idxs:
+            path = os.path.join(vid_path, "frame_{}.jpg".format(idx))
+            frame = Image.open(path)
+            if self.transform:
+                frame = basic_transform(frame)
+            frames.append(transforms.ToTensor()(frame))
+        return torch.stack(frames)
+          
 
 
 class ProxyTaskDataset(Dataset):
-    def __init__(self, root='../datasets/UCF101_frames', sampling='random', transform = basic_transform,
+    def __init__(self, root='../datasets/UCF101_frames', sampling='random', transform=basic_transform,
                  video_info_path='../datasets/ucfTrainTestlist/trainlist01.txt', n_samples=6, n_questions=6):
         super(ProxyTaskDataset, self).__init__()
         self.n_samples = n_samples

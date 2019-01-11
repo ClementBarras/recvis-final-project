@@ -3,7 +3,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from dataset import ProxyTaskDataset
+from dataset import SupervisedDataset
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 import numpy as np
@@ -11,18 +11,16 @@ from utils import get_free_gpu
 
 
 # Training settings
-parser = argparse.ArgumentParser(description='Self supervised learning script')
+parser = argparse.ArgumentParser(description='Supervised learning script')
 parser.add_argument('--data', type=str, default='../datasets/UCF101_frames', metavar='D',
                     help="folder where data is located.")
 parser.add_argument('--video-list-directory', type=str, default='../datasets/ucfTrainTestlist', metavar='SD',
                     help="directory where the video lists are stored")
 parser.add_argument('--sampling', type=str, default='random', metavar='SA,',
                     help="Sampling strategy (random, consecutive or constrained consecutive).")
-parser.add_argument('--n_questions', type=int, default=6, metavar='Q,',
-                    help="Number of questions")
 parser.add_argument('--n_samples', type=int, default=10, metavar='s,',
                     help="Number of samples ie. frames")
-parser.add_argument('--batch-size', type=int, default=8, metavar='B',
+parser.add_argument('--batch-size', type=int, default=1, metavar='B',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 10)')
@@ -51,24 +49,24 @@ if not os.path.isdir(args.experiment):
 #train_split_paths = ['trainlist1.txt', 'trainlist2.txt', 'trainlist3.txt']
 #val_split_paths = ['vallist1.txt', 'vallist2.txt', 'vallist3.txt']
 
-train_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completetrainlist.txt'),                                                sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
+train_set = SupervisedDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'trainlist1.txt'), train=True)
 train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
 
-validation_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completevallist.txt'),                                                sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
+validation_set = SupervisedDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'vallist1.txt'), train=True)
 val_loader = DataLoader(validation_set, batch_size=args.batch_size, shuffle=True)
 
 # Neural network and optimizer
 # We define neural net in model.py so that it can be reused by the evaluate.py script
 from i3d import I3D
-from models import O3N
+from models import O3N, SupervisedModel
 i3d = I3D(num_classes=400)
-i3d.load_state_dict(torch.load('../models/model_rgb.pth'))
-model = O3N(i3d, n_questions=args.n_questions)
-layers_to_freeze = [i3d.conv3d_1a_7x7, i3d.conv3d_2b_1x1, i3d.conv3d_2c_3x3, i3d.maxPool3d_3a_3x3, i3d.mixed_3b, i3d.mixed_3c,
-        i3d.mixed_4b, i3d.mixed_4c, i3d.mixed_4d, i3d.mixed_4e, i3d.mixed_4f]
-for layer in layers_to_freeze:
-    for param in layer.parameters():
-        param.requires_grad = False
+o3n = O3N(i3d=i3d, n_questions=6)
+o3n.load_state_dict(torch.load('adam_consecutive_sampling/model_8.pth'))
+model = SupervisedModel(o3n.i3d, n_samples=args.n_samples)
+#layers_to_freeze = [i3d.conv3d_1a_7x7, i3d.conv3d_2b_1x1, i3d.conv3d_2c_3x3, i3d.maxPool3d_3a_3x3, i3d.mixed_3b, i3d.mixed_3c,
+#        i3d.mixed_4b, i3d.mixed_4c, i3d.mixed_4d, i3d.mixed_4e, i3d.mixed_4f]
+for param in model.i3d.parameters():
+    param.requires_grad = False
         
 if use_cuda:
     print('Using GPU')

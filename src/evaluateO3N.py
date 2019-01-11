@@ -66,7 +66,7 @@ def validation():
         print(count)
     validation_loss /= len(val_loader.dataset)
     
-    print('\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+    print('\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.4f}%)\n'.format(
         validation_loss, correct, len(val_loader.dataset),
         100. * correct / len(val_loader.dataset)))
     return validation_loss

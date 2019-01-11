@@ -5,7 +5,7 @@ import sys
 import json
 
 
-def extract_frames_from_video(vid_path, out_dir):
+def extract_rgb_frames_from_video(vid_path, out_dir):
     if not os.path.exists(vid_path):
         print("Video path {} does not exist.".format(vid_path))
         sys.exit()
@@ -51,11 +51,9 @@ def create_all_frames(root, out_dir):
             for f in file_list:
                 print('Processing video {}...'.format(f))
                 vid_path = os.path.join(root, subdir, f)
-                idx = extract_frames_from_video(vid_path, out_dir)
+                idx = extract_rgb_frames_from_video(vid_path, out_dir)
        
         
-       
-    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--root', type=str, default='../datasets/UCF-101')
