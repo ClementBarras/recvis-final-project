@@ -64,6 +64,7 @@ from models import O3N
 i3d = I3D(num_classes=400)
 i3d.load_state_dict(torch.load('../models/model_rgb.pth'))
 model = O3N(i3d, n_questions=args.n_questions)
+#model.load_state_dict(torch.load('adam_constrained_sampling/model_3.pth'))
 layers_to_freeze = [i3d.conv3d_1a_7x7, i3d.conv3d_2b_1x1, i3d.conv3d_2c_3x3, i3d.maxPool3d_3a_3x3, i3d.mixed_3b, i3d.mixed_3c,
         i3d.mixed_4b, i3d.mixed_4c, i3d.mixed_4d, i3d.mixed_4e, i3d.mixed_4f]
 for layer in layers_to_freeze:

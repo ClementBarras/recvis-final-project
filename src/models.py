@@ -9,7 +9,7 @@ class O3N(nn.Module):
         super(O3N, self).__init__()
         self.i3d = i3d
         self.n_questions = n_questions
-        self.fc1 = nn.Linear(n_questions*400, 128)
+        self.fc1 = nn.Linear(n_questions*1024, 128)
         self.fc2 = nn.Linear(128, n_questions)
         
     def forward(self, inputs):
@@ -17,9 +17,10 @@ class O3N(nn.Module):
         inputs = inputs.permute((1,0,2,3,4,5))
         for qst in inputs:
             out, out_logits = self.i3d(qst)
-            to_concat.append(out)
+            features = self.i3d.features
+            to_concat.append(features)
         x = torch.cat(to_concat, 1)
-        x = x.view(-1, self.n_questions*400)
+        x = x.view(-1, self.n_questions*1024)
         x = F.relu(self.fc1(x))
         output = F.softmax(self.fc2(x), dim=0)
         return output
@@ -30,7 +31,7 @@ class SupervisedModel(nn.Module):
         self.i3d = i3d
         self.n_classes = n_classes
         self.n_samples = n_samples
-        self.fc1 = nn.Linear(400, 128)
+        self.fc1 = nn.Linear(1024, 128)
         self.fc2 = nn.Linear(128, n_classes)
         
     def forward(self, inputs):
@@ -42,7 +43,8 @@ class SupervisedModel(nn.Module):
         for seq in range(n_sequences):
             frames = inputs[:, :, seq*self.n_samples:(seq+1)*self.n_samples, :, :]
             out, out_logits = self.i3d(frames)
-            x = F.relu(self.fc1(out))
+            features = self.i3d.features
+            x = F.relu(self.fc1(features))
             x = F.softmax(self.fc2(x), dim=0)
             probas.append(x)
         x = torch.cat(probas, 0)

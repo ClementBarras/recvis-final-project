@@ -259,6 +259,7 @@ class I3D(torch.nn.Module):
         out = self.mixed_5b(out)
         out = self.mixed_5c(out)
         out = self.avg_pool(out)
+        self.features = out
         out = self.dropout(out)
         out = self.conv3d_0c_1x1(out)
         out = out.squeeze(3)
