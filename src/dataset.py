@@ -13,8 +13,11 @@ class Sampler(object):
         self.sampling_strat = sampling_strat
         self.n_samples = n_samples
         
-    def sample(self, frame_count, shuffle=False):
-        frame_idx_list = list(range(1, frame_count+1))
+    def sample(self, frame_count, boundaries = None, shuffle=False):
+        if boundaries is None:
+            frame_idx_list = list(range(1, frame_count+1))
+        else:
+            frame_idx_list = list(range(1+boundaries[0], 1+min(frame_count, boundaries[1])))
         idxs = []
         if self.sampling_strat == 'random':
             idxs = random.sample(frame_idx_list, self.n_samples)
@@ -103,24 +106,33 @@ class SupervisedDataset(Dataset):
 
 class ProxyTaskDataset(Dataset):
     def __init__(self, root='../datasets/UCF101_frames', sampling='random', transform=basic_transform,
-                 video_info_path='../datasets/ucfTrainTestlist/trainlist01.txt', n_samples=6, n_questions=6):
+                 video_info_path='../datasets/ucfTrainTestlist/trainlist01.txt', n_samples=6, n_questions=6,
+                 use_flow = False, flow_winwidth = 100):
         super(ProxyTaskDataset, self).__init__()
         self.n_samples = n_samples
+        self.use_flow = use_flow
+        self.flow_winwidth = flow_winwidth
         self.n_questions = n_questions
         self.root = root
         self.transform = transform
-        self.video_list = self._get_video_list(video_info_path)
+        if use_flow:
+            self.video_list, self.frames_dict = self._get_video_list(video_info_path)
+        else:
+            self.video_list = self._get_video_list(video_info_path)
         self.sampler = Sampler(sampling_strat=sampling, n_samples=n_samples)
         
     def __getitem__(self, index):
         chosen_video = self.video_list[index]
         vid_path = os.path.join(self.root, chosen_video)
+        boundaries = None
+        if self.use_flow:
+            boundaries = self.frames_dict[chosen_video]
         frame_count = len(os.listdir(vid_path))
         questions = []
         # Correct sequences
         target = []
         for qst in range(self.n_questions-1):
-            idxs = self.sampler.sample(frame_count)
+            idxs = self.sampler.sample(frame_count, boundaries = boundaries)
             frames = self._extract_frames(vid_path, idxs)
             questions.append(frames)
             target.append(1)
@@ -142,6 +154,8 @@ class ProxyTaskDataset(Dataset):
     
     def _get_video_list(self, video_info_path):
         video_list = []
+        if self.use_flow:
+            frames_dict = {}
         if isinstance(video_info_path, str):
             video_info_path = [video_info_path]
         for path in video_info_path:
@@ -150,15 +164,25 @@ class ProxyTaskDataset(Dataset):
                 lines = f.readlines()
                 for line in lines:
                     line = line.strip('\n')
-                    try:
-                        vid, class_id = line.split(' ')
-                    except ValueError:
-                        vid = line
+                    if self.use_flow:
+                        try:
+                            vid, class_id, start_frame = line.split(',')
+                        except ValueError:
+                            vid, start_frame = line, 0
+                        frames_dict[vid] = (start_frame, start_frame + self.flow_winwidth)
+                    else:
+                        try:
+                            vid, class_id = line.split(' ')
+                        except ValueError:
+                            vid = line
                     vid = vid.split("/")[1]
                     vid = vid.split(".")[0]
                     vid += "/"
                     video_list.append(vid)
-        return list(set(video_list))
+        if self.use_flow:
+            return list(set(video_list)), frames_dict
+        else:
+            return list(set(video_list))
     
     def _extract_frames(self, vid_path, idxs):
         frames = []

@@ -36,6 +36,8 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--experiment', type=str, default='experiment', metavar='E',
                     help='folder where experiment outputs are located.')
+parser.add_argument('--use_flow', type=bool, default=False, metavar='US',
+                    help='whether flow information is used or not (default: False)')
 
 args = parser.parse_args()
 use_cuda = torch.cuda.is_available()
@@ -45,16 +47,23 @@ torch.manual_seed(args.seed)
 if not os.path.isdir(args.experiment):
     os.makedirs(args.experiment)
 
+use_flow = args.use_flow
+
 # Data initialization and loading
 #from data import data_transforms
 
 #train_split_paths = ['trainlist1.txt', 'trainlist2.txt', 'trainlist3.txt']
 #val_split_paths = ['vallist1.txt', 'vallist2.txt', 'vallist3.txt']
 
-train_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completetrainlist.txt'),                                                sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
-train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
+if use_flow:
+    print("using flow")
+    train_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completetrainlist_flow.txt'),                                                 sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
+    validation_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completevallist_flow.txt'),                                             sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
+else:
+    train_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completetrainlist.txt'),                                                 sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
+    validation_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completevallist.txt'),                                             sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
 
-validation_set = ProxyTaskDataset(root=args.data, video_info_path=os.path.join(args.video_list_directory, 'completevallist.txt'),                                                sampling=args.sampling, n_samples=args.n_samples, n_questions=args.n_questions)
+train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
 val_loader = DataLoader(validation_set, batch_size=args.batch_size, shuffle=True)
 
 # Neural network and optimizer
