@@ -1,8 +1,8 @@
 import os
 import numpy as np
 
-directory = '../datasets/adam_constrained_sampling'
-split1 = '../datasets/ucfTrainTestlist/testlist01.txt'
+directory = '../datasets/precomputed_features/random_new'
+split1 = '../datasets/ucfTrainTestlist/trainlist01.txt'
 classid = '../datasets/ucfTrainTestlist/classInd.txt'
 test = True
 
@@ -57,6 +57,6 @@ for i, vid in enumerate(video_list):
                 print(file)
 features = np.stack(features) 
 
-np.save('supervised_data/constrained/features_test01', features)
-np.save('supervised_data/constrained/labels_test01', labels)
-np.save('supervised_data/constrained/video_id_test01', video_id)
+np.save('../datasets/supervised_data/random/features_train01', features)
+np.save('../datasets/supervised_data/random/labels_train01', labels)
+np.save('../datasets/supervised_data/random/video_id_train01', video_id)
