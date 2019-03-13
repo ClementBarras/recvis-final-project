@@ -59,6 +59,7 @@ with open(split1) as f:
             video_list.append(vid)
              
 existing_folders = os.listdir(directory)
+#print(video_list)
 for i, vid in enumerate(video_list):
     if vid in existing_folders:
         folder_path = os.path.join(directory, vid)
@@ -72,7 +73,7 @@ for i, vid in enumerate(video_list):
                     labels.append(video_labels[i])
                     video_id.append(i)
             except Exception:
-                print(file)
+                print('error {}'.format(file))
 features = np.stack(features) 
 
 dir_name = args.output

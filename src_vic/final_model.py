@@ -15,7 +15,7 @@ parser.add_argument('--data', type=str, default='../datasets/supervised_data', m
                     help="folder where data is located.")
 parser.add_argument('--type', type=str, default='consecutive', metavar='D',
                     help="subfolder where data is located.")
-parser.add_argument('--model', type=str, default='knn', metavar='D',
+parser.add_argument('--model', type=str, default='logreg', metavar='D',
                     help="subfolder where data is located.")
 
 args = parser.parse_args()

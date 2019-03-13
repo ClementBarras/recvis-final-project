@@ -15,9 +15,9 @@ from IPython.display import clear_output
 from models import AOT 
 from i3d import I3D
 
-model_name = 'model_07_03'
-model_path = 'model_07_03/model_23.pth'
-FRAMES_PER_SEQUENCE = 64
+model_name = 'model_rgb_kinetics'
+model_path = '../models/model_rgb.pth'
+FRAMES_PER_SEQUENCE = 25
 
 datasets_path = "../datasets/"
 video_path = os.path.join(datasets_path, "UCF101_frames")
@@ -30,10 +30,11 @@ except:
 
 use_cuda = True
 
-i3d = I3D(num_classes=400)
+i3d = I3D(num_classes=400, modality='rgb')
 aot = AOT(i3d=i3d)
-aot.load_state_dict(torch.load(model_path))
-model = aot.i3d
+i3d.load_state_dict(torch.load(model_path))
+#aot.load_state_dict(torch.load(model_path))
+model = i3d
 
 if use_cuda:
     print('Using GPU')
@@ -72,19 +73,36 @@ for v, video in enumerate(video_list):
     n_sequences = frame_count//FRAMES_PER_SEQUENCE
     if n_sequences == 0:
         idxs = list(range(1, frame_count+1)) + [frame_count for i in range(FRAMES_PER_SEQUENCE-frame_count)]
-        input_list = [extract_frames(video_folder, idxs)]
+        inputs = extract_frames(video_folder, idxs)[None,:,:,:,:]
+        inputs = inputs.permute((0,2,1,3,4))
+        model.forward(inputs.to(device))
+        features = model.features.cpu().detach().numpy().ravel()
+        file_name = "frames_{}_to_{}".format(start_idx, end_idx)
+        np.savetxt(os.path.join(res_folder, file_name), features, fmt="%.5f")
     else:
-        input_list = []
         for seq in range(n_sequences):
             start_idx = seq*FRAMES_PER_SEQUENCE + 1
             end_idx = start_idx + FRAMES_PER_SEQUENCE - 1
             idxs = np.arange(start_idx, end_idx+1)
-            inputs = extract_frames(video_folder, idxs)
-            input_list.append(inputs)
-    inputs = torch.stack(input_list)   
-    inputs = inputs.permute((0,2,1,3,4))
-    model.forward(inputs.to(device))
-    features = model.features.cpu().detach().numpy()
-    print(features.shape)
-    #file_name = "frames_{}_to_{}".format(start_idx, end_idx)
-    #np.savetxt(os.path.join(res_folder, file_name), features, fmt="%.5f")
+            inputs = extract_frames(video_folder, idxs)[None]
+            #print(inputs.shape)
+            inputs = inputs.permute((0,2,1,3,4))
+            model.forward(inputs.to(device))
+            features = model.features.cpu().detach().numpy().ravel()
+            file_name = "frames_{}_to_{}".format(start_idx, end_idx)
+            np.savetxt(os.path.join(res_folder, file_name), features, fmt="%.5f")
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        

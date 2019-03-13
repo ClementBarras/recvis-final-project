@@ -8,10 +8,10 @@ class AOT(nn.Module):
     def __init__(self, i3d):
         super(AOT, self).__init__()
         self.i3d = i3d
-        self.fc1 = nn.Linear(3*1024, 128)
+        self.fc1 = nn.Linear(1024, 128)
         self.fc2 = nn.Linear(128, 2)
         
-    def forward(self, inputs):
+    def siamese_forward(self, inputs):
         to_concat = []
         inputs = inputs.permute((1,0,2,3,4,5))
         for seq in inputs:
@@ -37,7 +37,7 @@ class AOT(nn.Module):
         output = output.permute(1,2,0)
         return output
         
-    def single_forward(self, x):
+    def forward(self, x):
         x = x.permute((0,2,1,3,4))
         out, out_logits = self.i3d(x)
         features = self.i3d.features
